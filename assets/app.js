@@ -1,4 +1,4 @@
-﻿/* Archway Tutor. Owns the system prompt, the hint ladder, and the two-view
+/* Archway Tutor. Owns the system prompt, the hint ladder, and the two-view
    session state machine. Keys, transport, readout and error rendering belong to
    archway.js and are not reimplemented here. */
 (function () {

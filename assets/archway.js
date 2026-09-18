@@ -1,4 +1,4 @@
-﻿/* NYU Archway - shared browser client for the example apps.
+/* NYU Archway - shared browser client for the example apps.
  *
  * One file, no build step, no dependencies, no module system. Plain <script>
  * and a global on purpose: a student who clones the repo and double-clicks
@@ -239,7 +239,7 @@
     var key = getKey().trim();
     if (!key) {
       return Promise.reject(
-        new ArchwayError("No Archway API key yet. Paste your sk-nyu-â€¦ key above to begin.", {
+        new ArchwayError("No Archway API key yet. Paste your sk-nyu-\u2026 key above to begin.", {
           code: "missing_api_key",
         })
       );
@@ -599,7 +599,7 @@
     var head = el("div", "keypanel__head");
     var lock = el("span", "keypanel__icon");
     lock.setAttribute("aria-hidden", "true");
-    lock.textContent = "â€¢";
+    lock.textContent = "\u2022";
     var headText = el("div");
     headText.appendChild(el("h2", "keypanel__title", "Connect your Archway key"));
     headText.appendChild(
@@ -622,7 +622,7 @@
     keyInput.type = "password";
     keyInput.id = "archway-key";
     keyInput.className = "mono";
-    keyInput.placeholder = "sk-nyu-â€¦";
+    keyInput.placeholder = "sk-nyu-\u2026";
     keyInput.autocomplete = "off";
     keyInput.spellcheck = false;
     keyInput.setAttribute("aria-describedby", "archway-key-hint");
@@ -639,7 +639,7 @@
     var keyHint = el(
       "p",
       "field__hint",
-      "Held for this browser tab only â€” closing it forgets the key."
+      "Held for this browser tab only \u2014 closing it forgets the key."
     );
     keyHint.id = "archway-key-hint";
 
@@ -740,7 +740,7 @@
       // The prefix only - enough to tell two keys apart, not enough to use one.
       // The gateway address is deliberately absent: it is not the visitor's to
       // know or to change.
-      barText.textContent = "Connected Â· " + getKey().slice(0, 14) + "â€¦";
+      barText.textContent = "Connected \u00b7 " + getKey().slice(0, 14) + "\u2026";
       panel.classList.add("hidden");
       bar.classList.remove("hidden");
       paintAccess();
@@ -904,7 +904,7 @@
       advice = "This key is scoped away from that provider or model. Pick another model.";
     } else if (code === "model_not_found" || status === 404) {
       title = "Unknown model";
-      advice = "Reload the model list â€” the catalogue may have changed.";
+      advice = "Reload the model list \u2014 the catalogue may have changed.";
     } else if (code === "network_error" || code === "cors_origin_not_allowed") {
       title = "Could not reach the gateway";
     }
