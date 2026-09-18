@@ -1,4 +1,4 @@
-/* NYU Archway - shared browser client for the example apps.
+﻿/* NYU Archway - shared browser client for the example apps.
  *
  * One file, no build step, no dependencies, no module system. Plain <script>
  * and a global on purpose: a student who clones the repo and double-clicks
@@ -28,18 +28,17 @@
 (function (global) {
   "use strict";
 
-  // The deployed Archway these examples are built against, so the apps work the
-  // moment they are opened and the only thing anyone has to supply is a key.
+  // The Archway these examples call. Deployment detail, deliberately invisible:
+  // it is never rendered, never put in an error message, and there is no field
+  // to change it. Someone running their own gateway edits this one line.
   //
-  // It lives here, in code, rather than in the README or anywhere else
-  // user-facing: it is a deployment detail, and this is the single line to edit
-  // when the gateway moves to a different host or a custom domain. The field in
-  // the key panel is prefilled from it and stays editable so a clone can point
-  // at a local stack without touching the source.
-  var DEFAULT_BASE_URL = "https://srv1990842.hstgr.cloud";
+  // Keeping it out of the UI is not secrecy theatre - a base URL a visitor can
+  // retype is a base URL a visitor can be *told* to retype, and an app whose
+  // endpoint is a text box is one screenshot away from sending an NYU key to
+  // somebody else's server.
+  var BASE_URL = "https://srv1990842.hstgr.cloud";
 
   var STORE_KEY = "nyu-archway:key";
-  var STORE_BASE = "nyu-archway:base-url";
   var STORE_THEME = "nyu-archway:theme";
 
   // ---------------------------------------------------------------- storage
@@ -68,7 +67,6 @@
   }
 
   var memoryKey = null;
-  var memoryBase = null;
 
   function getKey() {
     return memoryKey || read(STORE_KEY) || "";
@@ -79,23 +77,7 @@
     write(STORE_KEY, value);
   }
 
-  function getBaseUrl() {
-    return (memoryBase || read(STORE_BASE) || DEFAULT_BASE_URL).replace(/\/+$/, "");
-  }
-
-  function setBaseUrl(value) {
-    var clean = (value || "").trim().replace(/\/+$/, "");
-    memoryBase = clean || null;
-    write(STORE_BASE, clean);
-  }
-
-  function hasBaseUrl() {
-    return getBaseUrl().length > 0;
-  }
-
-  /* The base URL has a default, so a key is the only thing an app has to wait
-   * for. `hasBaseUrl` is still checked at call time, for the case where someone
-   * clears the field by hand. */
+  /* A key is the only thing an app waits for. */
   function hasKey() {
     return getKey().trim().length > 0;
   }
@@ -257,18 +239,9 @@
     var key = getKey().trim();
     if (!key) {
       return Promise.reject(
-        new ArchwayError("No Archway API key yet. Paste your sk-nyu-… key above to begin.", {
+        new ArchwayError("No Archway API key yet. Paste your sk-nyu-â€¦ key above to begin.", {
           code: "missing_api_key",
         })
-      );
-    }
-    if (!hasBaseUrl()) {
-      return Promise.reject(
-        new ArchwayError(
-          "No gateway address yet. Enter your Archway's base URL above - ask whoever " +
-            "issued your key if you do not know it.",
-          { code: "missing_base_url" }
-        )
       );
     }
 
@@ -282,7 +255,7 @@
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
 
     return global
-      .fetch(getBaseUrl() + path, {
+      .fetch(BASE_URL + path, {
         method: options.method || "GET",
         headers: headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -292,12 +265,11 @@
       .catch(function (err) {
         if (err && err.name === "AbortError") throw err;
         // A blocked CORS preflight and an unreachable host are the same opaque
-        // TypeError with no status, so say both rather than guess.
+        // TypeError with no status, so this cannot say which it was. It names
+        // neither - the address is not the visitor's to debug.
         throw new ArchwayError(
-          "Could not reach the Archway at " +
-            getBaseUrl() +
-            ". Either the gateway is down, the base URL is wrong, or this page's " +
-            "origin is not in NYU_CORS_ALLOWED_ORIGINS on the gateway.",
+          "Could not reach the Archway. It may be temporarily unavailable, or this " +
+            "page may not be cleared to call it. Try again in a moment.",
           { code: "network_error" }
         );
       });
@@ -370,6 +342,56 @@
       })[0];
       if (match) select.value = match.id;
     }
+  }
+
+  // ------------------------------------------------------------- key access
+
+  /* GET /v1/key - what this key is, and which vendors it unlocks, in one call.
+   *
+   * The answer is scoped to the key that asks, so it doubles as the cheapest
+   * validity check there is: a 200 means the key authenticated, and it costs no
+   * tokens to learn that. Nothing about the key's owner is in the response -
+   * these pages are browser apps holding somebody else's key, and the gateway
+   * treats the person behind it as none of their business.
+   *
+   * Resolves the body: {key_prefix, name, expires_at, scope, providers: [...]}.
+   */
+  function describeKey() {
+    return requestJson("/v1/key").then(function (result) {
+      return result.body || {};
+    });
+  }
+
+  /* GET /v1/providers - just the vendor list, each entry carrying the aliases
+   * this key may send and how much of that vendor's allowance is left. The
+   * companion to listModels(): same scoping, grouped the other way. */
+  function listProviders() {
+    return requestJson("/v1/providers").then(function (result) {
+      return (result.body && result.body.data) || [];
+    });
+  }
+
+  /* One-line summary of a provider entry, for a tooltip. */
+  function providerSummary(provider) {
+    var name = provider.display_name || provider.id || "This provider";
+    if (provider.mock) {
+      return (
+        name +
+        ": NYU holds no active vendor credential, so calls are answered by the " +
+        "Archway's mock adapter. Token accounting is still real."
+      );
+    }
+    var quota = provider.quota;
+    if (!quota) return name;
+    if (quota.exhausted) {
+      return name + ": this key has spent its token allowance for the current window.";
+    }
+    if (quota.remaining === null || quota.remaining === undefined) {
+      return name + ": no token limit on this key.";
+    }
+    return (
+      name + ": " + formatInt(quota.remaining) + " tokens left this " + (quota.window || "window") + "."
+    );
   }
 
   /* Pick one model per provider, for the comparison demo. */
@@ -574,148 +596,201 @@
     var bar = el("div", "keybar hidden");
 
     // --- the form -----------------------------------------------------
-    var grid = el("div", "keypanel__grid");
+    var head = el("div", "keypanel__head");
+    var lock = el("span", "keypanel__icon");
+    lock.setAttribute("aria-hidden", "true");
+    lock.textContent = "â€¢";
+    var headText = el("div");
+    headText.appendChild(el("h2", "keypanel__title", "Connect your Archway key"));
+    headText.appendChild(
+      el(
+        "p",
+        "keypanel__sub",
+        "Paste the key issued to you. Every request this page makes is signed with it and " +
+          "metered against your own quota."
+      )
+    );
+    head.appendChild(lock);
+    head.appendChild(headText);
 
     var keyField = el("div", "field");
-    var keyLabel = el("label", null, "Your Archway API key");
+    var keyLabel = el("label", null, "Archway API key");
     keyLabel.setAttribute("for", "archway-key");
+
+    var keyWrap = el("div", "keyinput");
     var keyInput = el("input");
     keyInput.type = "password";
     keyInput.id = "archway-key";
     keyInput.className = "mono";
-    keyInput.placeholder = "sk-nyu-…";
+    keyInput.placeholder = "sk-nyu-â€¦";
     keyInput.autocomplete = "off";
     keyInput.spellcheck = false;
+    keyInput.setAttribute("aria-describedby", "archway-key-hint");
+
+    // Revealing a pasted key is the only way to check it was pasted whole, and
+    // it is the visitor's own screen.
+    var peek = el("button", "keyinput__peek", "Show");
+    peek.type = "button";
+    peek.setAttribute("aria-label", "Show the key");
+
+    keyWrap.appendChild(keyInput);
+    keyWrap.appendChild(peek);
+
     var keyHint = el(
       "p",
       "field__hint",
-      "Issued in the Archway portal under “My keys”. Kept in this tab only — closing it forgets the key."
+      "Held for this browser tab only â€” closing it forgets the key."
     );
+    keyHint.id = "archway-key-hint";
+
     keyField.appendChild(keyLabel);
-    keyField.appendChild(keyInput);
+    keyField.appendChild(keyWrap);
     keyField.appendChild(keyHint);
 
-    var baseField = el("div", "field");
-    var baseLabel = el("label", null, "Archway base URL");
-    baseLabel.setAttribute("for", "archway-base");
-    var baseInput = el("input");
-    baseInput.type = "url";
-    baseInput.id = "archway-base";
-    baseInput.className = "mono";
-    baseInput.placeholder = DEFAULT_BASE_URL;
-    baseInput.value = getBaseUrl();
-    baseInput.autocomplete = "off";
-    baseInput.spellcheck = false;
-    var baseHint = el("p", "field__hint", "Already set. Change it only if you run your own Archway.");
-    baseField.appendChild(baseLabel);
-    baseField.appendChild(baseInput);
-    baseField.appendChild(baseHint);
-
-    grid.appendChild(keyField);
-    grid.appendChild(baseField);
-
-    var actions = el("div", "row");
+    var actions = el("div", "keypanel__actions");
     var connect = el("button", "btn btn--primary", "Connect");
     connect.type = "button";
-    var status = el("span", "small muted");
+    var status = el("span", "keypanel__status");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     actions.appendChild(connect);
     actions.appendChild(status);
 
     var warn = el("div", "keypanel__warn");
-    var warnText = el("div");
+    var warnMark = el("span", "keypanel__warn-mark", "!");
+    warnMark.setAttribute("aria-hidden", "true");
+    var warnText = el("p", "keypanel__warn-text");
     warnText.appendChild(el("strong", null, "Use a low-quota key. "));
     warnText.appendChild(
       global.document.createTextNode(
-        "This app runs entirely in your browser, so the key you paste is exposed to " +
-          "this page. That is fine for a demo key with a small quota and wrong for " +
-          "a key you use elsewhere. Never paste a shared or production key into any website."
+        "This app runs entirely in your browser, so the key you paste is visible to " +
+          "anyone with access to this screen. That is fine for a demo key with a small " +
+          "allowance, and wrong for a key you use anywhere else."
       )
     );
+    warn.appendChild(warnMark);
     warn.appendChild(warnText);
 
-    panel.appendChild(el("h2", null, "Connect your Archway key"));
-    panel.appendChild(
-      el(
-        "p",
-        "card__note",
-        "Paste your key to begin. Every call this page makes is signed with it and metered " +
-          "against your own quota."
-      )
-    );
-    panel.appendChild(grid);
+    panel.appendChild(head);
+    panel.appendChild(keyField);
     panel.appendChild(actions);
     panel.appendChild(warn);
 
     // --- the collapsed bar --------------------------------------------
     var dot = el("span", "keybar__dot");
-    var barText = el("span", "small");
-    var change = el("button", "btn btn--sm btn--ghost", "Change key");
+    dot.setAttribute("aria-hidden", "true");
+    var barText = el("span", "keybar__text");
+    // Filled in asynchronously once the gateway says what this key reaches.
+    var access = el("span", "keybar__access");
+    access.setAttribute("role", "status");
+    access.setAttribute("aria-live", "polite");
+    var change = el("button", "btn btn--sm btn--ghost", "Change");
     change.type = "button";
-    var forget = el("button", "btn btn--sm btn--danger", "Forget key");
+    var forget = el("button", "btn btn--sm btn--ghost keybar__forget", "Forget key");
     forget.type = "button";
-    var spacer = el("span", "spacer");
     bar.appendChild(dot);
     bar.appendChild(barText);
-    bar.appendChild(spacer);
+    bar.appendChild(access);
+    bar.appendChild(el("span", "spacer"));
     bar.appendChild(change);
     bar.appendChild(forget);
 
     mountNode.appendChild(panel);
     mountNode.appendChild(bar);
 
+    function setPeek(on) {
+      keyInput.type = on ? "text" : "password";
+      peek.textContent = on ? "Hide" : "Show";
+      peek.setAttribute("aria-label", (on ? "Hide" : "Show") + " the key");
+    }
+
+    /* Say what the connected key actually unlocks.
+     *
+     * A key is not a uniform grant: it is scoped to some subset of the vendors
+     * NYU fronts, and one of those may already be out of tokens or have no
+     * credential behind it. A visitor who can see that before picking a model
+     * does not have to discover it from a 403 halfway through a demo.
+     *
+     * Every failure here is swallowed on purpose. This is a courtesy strip; a
+     * gateway that cannot answer it must not stop the app from running, and the
+     * first real call reports a bad key perfectly well on its own.
+     */
+    function paintAccess() {
+      clear(access);
+      describeKey().then(
+        function (info) {
+          clear(access);
+          (info.providers || []).forEach(function (provider) {
+            var tone = "";
+            if (provider.mock) tone = " badge--warn";
+            else if (provider.quota && provider.quota.exhausted) tone = " badge--bad";
+
+            var badge = el("span", "badge" + tone, provider.display_name || provider.id);
+            badge.title = providerSummary(provider);
+            access.appendChild(badge);
+          });
+        },
+        function () {
+          /* Left empty: see above. */
+        }
+      );
+    }
+
     function showConnected() {
-      var key = getKey();
-      barText.textContent = "Connected as " + key.slice(0, 11) + "… via " + getBaseUrl();
+      // The prefix only - enough to tell two keys apart, not enough to use one.
+      // The gateway address is deliberately absent: it is not the visitor's to
+      // know or to change.
+      barText.textContent = "Connected Â· " + getKey().slice(0, 14) + "â€¦";
       panel.classList.add("hidden");
       bar.classList.remove("hidden");
+      paintAccess();
     }
 
     function showForm(message) {
       panel.classList.remove("hidden");
       bar.classList.add("hidden");
+      clear(access);
       status.textContent = message || "";
+      status.classList.toggle("is-error", false);
+      keyInput.focus();
+    }
+
+    function fail(message) {
+      status.textContent = message;
+      status.classList.add("is-error");
       keyInput.focus();
     }
 
     connect.addEventListener("click", function () {
       var value = keyInput.value.trim();
-      var base = baseInput.value.trim();
 
-      if (!base) {
-        status.textContent = "Enter the Archway base URL first.";
-        baseInput.focus();
-        return;
-      }
-      if (!/^https?:\/\/[^\s/]+/i.test(base)) {
-        status.textContent = "That does not look like a URL. It should start with https:// .";
-        baseInput.focus();
-        return;
-      }
-      if (!value) {
-        status.textContent = "Paste a key first.";
-        keyInput.focus();
-        return;
-      }
-      if (value.indexOf("sk-nyu-") !== 0) {
-        status.textContent = "An Archway key starts with sk-nyu- .";
-        keyInput.focus();
-        return;
-      }
+      if (!value) return fail("Paste a key first.");
+      if (value.indexOf("sk-nyu-") !== 0) return fail("An Archway key starts with sk-nyu-");
+      if (value.length < 20) return fail("That key looks truncated. Copy the whole thing.");
 
-      setBaseUrl(base);
       setKey(value);
       keyInput.value = "";
+      setPeek(false);
       status.textContent = "";
+      status.classList.remove("is-error");
       showConnected();
       onReady();
+    });
+
+    peek.addEventListener("click", function () {
+      setPeek(keyInput.type === "password");
+      keyInput.focus();
     });
 
     keyInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") connect.click();
     });
 
-    baseInput.addEventListener("keydown", function (event) {
-      if (event.key === "Enter") connect.click();
+    keyInput.addEventListener("input", function () {
+      if (status.classList.contains("is-error")) {
+        status.textContent = "";
+        status.classList.remove("is-error");
+      }
     });
 
     change.addEventListener("click", function () {
@@ -812,12 +887,7 @@
     var title = "Something went wrong";
     var advice = "";
 
-    if (code === "missing_base_url") {
-      title = "No gateway address yet";
-      advice =
-        "These apps ship without one on purpose. Enter your Archway's base URL in the " +
-        "panel above, next to your key.";
-    } else if (code === "missing_api_key" || code === "invalid_api_key" || status === 401) {
+    if (code === "missing_api_key" || code === "invalid_api_key" || status === 401) {
       title = "That key was not accepted";
       advice =
         "Check you copied the whole sk-nyu- key, and that it has not been revoked in the portal.";
@@ -834,12 +904,9 @@
       advice = "This key is scoped away from that provider or model. Pick another model.";
     } else if (code === "model_not_found" || status === 404) {
       title = "Unknown model";
-      advice = "Reload the model list — the catalogue may have changed.";
-    } else if (code === "network_error") {
+      advice = "Reload the model list â€” the catalogue may have changed.";
+    } else if (code === "network_error" || code === "cors_origin_not_allowed") {
       title = "Could not reach the gateway";
-    } else if (code === "cors_origin_not_allowed") {
-      title = "This origin is not allowed";
-      advice = "Add this page's origin to NYU_CORS_ALLOWED_ORIGINS on the gateway.";
     }
 
     box.appendChild(el("span", "alert__title", title));
@@ -851,19 +918,18 @@
   // ---------------------------------------------------------------- export
 
   global.Archway = {
-    DEFAULT_BASE_URL: DEFAULT_BASE_URL,
     ArchwayError: ArchwayError,
 
     getKey: getKey,
     setKey: setKey,
     hasKey: hasKey,
-    getBaseUrl: getBaseUrl,
-    setBaseUrl: setBaseUrl,
-    hasBaseUrl: hasBaseUrl,
 
     request: request,
     requestJson: requestJson,
     listModels: listModels,
+    describeKey: describeKey,
+    listProviders: listProviders,
+    providerSummary: providerSummary,
     fillModelSelect: fillModelSelect,
     onePerProvider: onePerProvider,
     chat: chat,

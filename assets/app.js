@@ -134,58 +134,168 @@
 
   var setupView = $("setup-view");
   var sessionView = $("session-view");
+  var setupLock = $("setup-lock");
   var subjectSel = $("subject");
   var modelSel = $("model");
+  var modelSpin = $("model-spin");
+  var modelHintText = $("model-hint-text");
+  var modelRetry = $("model-retry");
   var problemEl = $("problem");
   var startBtn = $("start");
+  var startHint = $("start-hint");
   var setupError = $("setup-error");
   var previewText = $("preview-text");
 
   var sessionTitle = $("session-title");
+  var sessionModel = $("session-model");
   var problemEcho = $("problem-echo");
   var transcript = $("transcript");
   var errorBox = $("error-box");
   var readout = $("readout");
+  var readoutWrap = $("readout-wrap");
   var replyEl = $("reply");
   var sendBtn = $("send");
   var hintBtn = $("hint");
   var hintCounter = $("hint-counter");
   var pips = $("pips").querySelectorAll(".pip");
+  var ladderNote = $("ladder-note");
+  var turnStatus = $("turn-status");
   var stopBtn = $("stop");
   var giveUpBtn = $("give-up");
+  var giveUpNote = $("give-up-note");
   var newBtn = $("new-session");
   var liveText = $("live-text");
 
+  // Each async trigger carries its own spinner and its own label span, so the
+  // button that started a turn is the one that shows the turn running.
+  function btnLabel(btn) { return btn.querySelector("[data-label]"); }
+
+  function setWorking(btn, on) {
+    if (!btn) return;
+    var spin = btn.querySelector("[data-spin]");
+    if (spin) spin.classList.toggle("hidden", !on);
+    btn.classList.toggle("is-busy", !!on);
+  }
+
+  function setTurnStatus(text) {
+    turnStatus.textContent = text || "";
+  }
+
+  /* Ending a session abandons whatever turn was in flight, so the triggers it
+     left spinning are cleared here rather than by that turn's own finally. */
+  function resetWorking() {
+    setWorking(startBtn, false);
+    setWorking(sendBtn, false);
+    setWorking(hintBtn, false);
+    setWorking(giveUpBtn, false);
+  }
+
+  // renderReadout owns the strip itself but knows nothing about the labelled
+  // block around it, which must not sit on the page with nothing under it.
+  function showReadout(headers, extra) {
+    Archway.renderReadout(readout, headers || null, extra);
+    readoutWrap.classList.toggle("hidden", !headers);
+  }
+
   function updateSetupControls() {
     var ready = hasKey && modelsReady;
+    var hasProblem = problemEl.value.trim() !== "";
+
     subjectSel.disabled = !hasKey;
     problemEl.disabled = !hasKey;
     modelSel.disabled = !ready;
-    startBtn.disabled = !ready || problemEl.value.trim() === "";
+    startBtn.disabled = !ready || !hasProblem;
+    setupLock.classList.toggle("hidden", hasKey);
+
+    // Say what is missing rather than leaving a dead button to be puzzled over.
+    if (!hasKey) startHint.textContent = "Connect your Archway key above to begin.";
+    else if (!modelsReady) startHint.textContent = "Waiting for the model list.";
+    else if (!hasProblem) startHint.textContent = "Paste the problem above, then start.";
+    else startHint.textContent = "Nothing is sent until you press this.";
+  }
+
+  var LADDER_NOTES = [
+    "Tier 1 points at the idea that matters. No method, no numbers.",
+    "Tier 2 names the method or theorem and why it fits, without applying it.",
+    "Tier 3 sets up the first line of work, then hands the pen back."
+  ];
+
+  function ladderNoteText() {
+    if (state.solutionShown) {
+      return "The worked solution is on the transcript. Start a new session for another problem.";
+    }
+    if (state.hintsUsed >= HINT_TURNS.length) {
+      return "The ladder is spent. The worked solution is the only rung left.";
+    }
+    return LADDER_NOTES[state.hintsUsed];
   }
 
   function updateSessionControls() {
     var ready = state.started && hasKey && !state.busy;
+    var spent = state.solutionShown || state.hintsUsed >= HINT_TURNS.length;
+
     sendBtn.disabled = !ready;
-    hintBtn.disabled = !ready || state.solutionShown || state.hintsUsed >= HINT_TURNS.length;
+    hintBtn.disabled = !ready || spent;
     giveUpBtn.disabled = !ready || state.solutionShown;
     replyEl.disabled = !state.started || state.busy;
     newBtn.disabled = state.busy;
     stopBtn.classList.toggle("hidden", !state.busy);
 
-    var spent = state.solutionShown || state.hintsUsed >= HINT_TURNS.length;
     hintCounter.textContent = spent ? "Hints spent" : "Hint " + (state.hintsUsed + 1) + " of 3";
     hintCounter.className = "badge " + (spent ? "badge--warn" : "badge--accent");
+    ladderNote.textContent = ladderNoteText();
 
     for (var i = 0; i < pips.length; i++) {
-      pips[i].classList.toggle("is-used", i < state.hintsUsed || state.solutionShown);
+      var used = i < state.hintsUsed || state.solutionShown;
+      var next = !spent && i === state.hintsUsed;
+      pips[i].classList.toggle("is-used", used);
+      pips[i].classList.toggle("is-next", next);
+      // The rung captions are read out as a list; aria-current is what tells a
+      // screen reader which of the three is the one a press would spend.
+      if (next) pips[i].setAttribute("aria-current", "step");
+      else pips[i].removeAttribute("aria-current");
+    }
+
+    if (!giveUpArmed) {
+      btnLabel(giveUpBtn).textContent = state.solutionShown
+        ? "Worked solution shown"
+        : GIVE_UP_IDLE;
     }
   }
 
   function setBusy(busy) {
     state.busy = busy;
     transcript.setAttribute("aria-busy", busy ? "true" : "false");
+    if (busy) disarmGiveUp();
     updateSessionControls();
+  }
+
+  // --- "I give up" is one press away from ending the ladder, so it takes two.
+  // Weight without alarm: the second press is the same button, said plainly.
+  var GIVE_UP_IDLE = "Show the worked solution";
+  var GIVE_UP_NOTE = "Ends the hint ladder for this problem.";
+  var giveUpArmed = false;
+  var giveUpTimer = null;
+
+  function disarmGiveUp() {
+    if (giveUpTimer) {
+      clearTimeout(giveUpTimer);
+      giveUpTimer = null;
+    }
+    if (!giveUpArmed) return;
+    giveUpArmed = false;
+    giveUpBtn.classList.remove("is-armed");
+    btnLabel(giveUpBtn).textContent = GIVE_UP_IDLE;
+    giveUpNote.textContent = GIVE_UP_NOTE;
+  }
+
+  function armGiveUp() {
+    giveUpArmed = true;
+    giveUpBtn.classList.add("is-armed");
+    btnLabel(giveUpBtn).textContent = "Press again to give up";
+    giveUpNote.textContent =
+      "This spends the rest of the ladder and asks for the full worked solution.";
+    giveUpTimer = setTimeout(disarmGiveUp, 7000);
   }
 
   function renderPreview() {
@@ -208,12 +318,12 @@
 
   // Interface turns show a short label, so the thread stays readable, plus the
   // exact text that went to the model - reading that is half the lesson.
-  function addStudentBubble(label, sent) {
+  function addStudentBubble(text, sent) {
     var bubble = addBubble("You", true);
-    bubble.body.textContent = label;
-    if (sent && sent !== label) {
-      var peek = Archway.el("details", "sent-peek xs");
-      peek.appendChild(Archway.el("summary", "xs", "what this sent to the model"));
+    bubble.body.textContent = text;
+    if (sent && sent !== text) {
+      var peek = Archway.el("details", "sent-peek");
+      peek.appendChild(Archway.el("summary", null, "What this sent to the model"));
       peek.appendChild(Archway.el("pre", "prompt-view", sent));
       bubble.el.appendChild(peek);
     }
@@ -227,7 +337,7 @@
     var epoch = state.epoch;
     var target = opts.errorTarget || errorBox;
     Archway.clear(target);
-    Archway.renderReadout(readout, null);
+    showReadout(null);
 
     state.messages.push({ role: "user", content: opts.content });
     var studentBubble = addStudentBubble(opts.label, opts.content);
@@ -236,7 +346,10 @@
 
     state.controller = new AbortController();
     setBusy(true);
+    setWorking(opts.trigger, true);
+    setTurnStatus(opts.status || "The tutor is thinking.");
 
+    var endStatus = "";
     var streamed = "";
 
     function dropTurn() {
@@ -261,11 +374,12 @@
       if (epoch !== state.epoch) return;
       state.messages.push({ role: "assistant", content: res.text });
       tutorBubble.body.textContent = res.text;
-      Archway.renderReadout(readout, res.headers, { ms: res.ms });
+      showReadout(res.headers, { ms: res.ms });
       scrollTranscript();
     }).catch(function (err) {
       if (epoch !== state.epoch) return;
       if (err && err.name === "AbortError") {
+        endStatus = "Stopped.";
         if (streamed) {
           // The model must later see exactly what the student saw, partial or not.
           state.messages.push({ role: "assistant", content: streamed });
@@ -283,8 +397,13 @@
       if (opts.onFail) opts.onFail();
     }).finally(function () {
       tutorBubble.body.classList.remove("streaming");
+      // A turn from a previous session must not clear the spinner of the one
+      // that replaced it. Both paths that bump the epoch reset the buttons
+      // themselves, so nothing is left spinning either way.
       if (epoch !== state.epoch) return;
+      setWorking(opts.trigger, false);
       state.controller = null;
+      setTurnStatus(endStatus);
       setBusy(false);
       scrollTranscript();
     });
@@ -303,13 +422,20 @@
     state.hintsUsed = 0;
     state.solutionShown = false;
 
+    disarmGiveUp();
+    resetWorking();
     Archway.clear(transcript);
     Archway.clear(errorBox);
-    Archway.renderReadout(readout, null);
+    showReadout(null);
     Archway.clear(setupError);
+    setTurnStatus("");
     replyEl.value = "";
 
     sessionTitle.textContent = state.subject + " session";
+    // Which model is answering is part of the lesson, so it is on screen for
+    // the whole session rather than only in the readout after a turn lands.
+    var chosen = modelSel.options[modelSel.selectedIndex];
+    sessionModel.textContent = chosen ? chosen.textContent : state.model;
     problemEcho.textContent = problem;
     liveText.textContent = state.system;
 
@@ -323,6 +449,8 @@
       label: opener,
       content: opener,
       maxTokens: MAX_TOKENS_TURN,
+      trigger: startBtn,
+      status: "Opening the session.",
       // A failed opener leaves an empty session, so send them back to setup - and
       // put the error where they will be looking when they land.
       errorTarget: setupError,
@@ -339,7 +467,12 @@
     var text = replyEl.value.trim();
     if (!text || state.busy || !state.started) return;
     replyEl.value = "";
-    runTurn({ label: text, content: text, maxTokens: MAX_TOKENS_TURN });
+    runTurn({
+      label: text,
+      content: text,
+      maxTokens: MAX_TOKENS_TURN,
+      trigger: sendBtn
+    });
   }
 
   function askHint() {
@@ -354,6 +487,8 @@
       label: "Give me a hint (" + (tier + 1) + " of 3)",
       content: HINT_TURNS[tier],
       maxTokens: MAX_TOKENS_TURN,
+      trigger: hintBtn,
+      status: "Writing hint " + (tier + 1) + " of 3.",
       onFail: function () {
         state.hintsUsed = tier;
         updateSessionControls();
@@ -370,6 +505,8 @@
       label: "I give up - show me the worked solution",
       content: SOLUTION_TURN,
       maxTokens: MAX_TOKENS_SOLUTION,
+      trigger: giveUpBtn,
+      status: "Working the solution through.",
       onFail: function () {
         state.solutionShown = false;
         updateSessionControls();
@@ -385,12 +522,15 @@
     state.messages = [];
     state.hintsUsed = 0;
     state.solutionShown = false;
+    disarmGiveUp();
+    resetWorking();
     setBusy(false);
 
     Archway.clear(transcript);
     Archway.clear(errorBox);
-    Archway.renderReadout(readout, null);
+    showReadout(null);
     Archway.clear(setupError);
+    setTurnStatus("");
     replyEl.value = "";
     problemEl.value = "";
 
@@ -401,13 +541,25 @@
     problemEl.focus();
   }
 
+  function setModelPlaceholder(text) {
+    Archway.clear(modelSel);
+    modelSel.appendChild(Archway.el("option", null, text));
+  }
+
   function loadModels() {
     modelsReady = false;
+    setModelPlaceholder("Loading models...");
+    modelSpin.classList.remove("hidden");
+    modelRetry.classList.add("hidden");
+    modelHintText.textContent = "Asking the Archway which models this key can reach.";
     updateSetupControls();
     Archway.clear(setupError);
 
     return Archway.listModels().then(function (models) {
       if (!models || !models.length) {
+        setModelPlaceholder("No models available");
+        modelHintText.textContent = "This key reaches no chat model.";
+        modelRetry.classList.remove("hidden");
         setupError.appendChild(buildAlert(
           "No models available",
           "This key cannot reach any chat model. Ask whoever issued it to attach a provider policy."
@@ -418,9 +570,19 @@
       // the helper falls back to the first model in the list.
       Archway.fillModelSelect(modelSel, models, "claude");
       modelsReady = true;
+      modelHintText.textContent =
+        models.length === 1
+          ? "1 model is available to this key."
+          : models.length + " models are available to this key.";
     }).catch(function (err) {
+      setModelPlaceholder("Model list unavailable");
+      modelHintText.textContent = "The model list could not be loaded.";
+      modelRetry.classList.remove("hidden");
       Archway.renderError(setupError, err);
-    }).finally(updateSetupControls);
+    }).finally(function () {
+      modelSpin.classList.add("hidden");
+      updateSetupControls();
+    });
   }
 
   function buildAlert(title, body) {
@@ -446,8 +608,10 @@
       hasKey = false;
       modelsReady = false;
       if (state.controller) state.controller.abort();
-      Archway.clear(modelSel);
-      modelSel.appendChild(Archway.el("option", "", "Connect a key first"));
+      setModelPlaceholder("Connect a key first");
+      modelSpin.classList.add("hidden");
+      modelRetry.classList.add("hidden");
+      modelHintText.textContent = "Every model your key can reach, through one gateway.";
       updateSetupControls();
       updateSessionControls();
     }
@@ -458,8 +622,23 @@
   startBtn.addEventListener("click", startSession);
   sendBtn.addEventListener("click", sendReply);
   hintBtn.addEventListener("click", askHint);
-  giveUpBtn.addEventListener("click", askSolution);
   newBtn.addEventListener("click", newSession);
+  modelRetry.addEventListener("click", loadModels);
+
+  giveUpBtn.addEventListener("click", function () {
+    if (state.busy || !state.started || state.solutionShown) return;
+    if (!giveUpArmed) {
+      armGiveUp();
+      return;
+    }
+    disarmGiveUp();
+    askSolution();
+  });
+
+  // Anything that is not the second press is a change of mind.
+  giveUpBtn.addEventListener("blur", disarmGiveUp);
+  replyEl.addEventListener("focus", disarmGiveUp);
+
   stopBtn.addEventListener("click", function () {
     if (state.controller) state.controller.abort();
   });
@@ -476,4 +655,15 @@
   }
   submitOnModEnter(problemEl, startSession);
   submitOnModEnter(replyEl, sendReply);
+
+  // Escape is the one global hotkey, and it is safe inside a textarea: it types
+  // nothing, so it cannot collide with someone mid-sentence.
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    if (giveUpArmed) {
+      disarmGiveUp();
+      return;
+    }
+    if (state.busy && state.controller) state.controller.abort();
+  });
 })();

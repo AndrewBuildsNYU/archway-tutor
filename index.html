@@ -1,14 +1,14 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Archway Tutor Â· NYU Archway</title>
+<title>Archway Tutor &middot; NYU Archway</title>
 <meta name="description" content="A Socratic study partner that walks you to the answer instead of handing it over, built on the NYU Archway.">
 <link rel="stylesheet" href="assets/archway.css">
 <script>
   // Pre-paint theme stamp: avoids a light flash for dark-mode users. Inline on
-  // purpose and safe here â€” GitHub Pages sets no CSP. (The Archway's own pages
+  // purpose and safe here - GitHub Pages sets no CSP. (The Archway's own pages
   // cannot do this; script-src 'self' blocks it.)
   try {
     var t = localStorage.getItem("nyu-archway:theme");
@@ -16,49 +16,520 @@
   } catch (e) {}
 </script>
 <style>
+  /* Page-specific only. Everything structural, every colour and every focus
+     ring comes from assets/archway.css; nothing below re-states it. */
+
+  /* ------------------------------------------------------------ page head */
+
+  .page-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-6);
+  }
+  .page-head h1 {
+    max-width: 22ch;
+    font-size: var(--fs-hero);
+  }
+  .page-head .lede {
+    margin: 0;
+  }
+  .page-head__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-sm);
+  }
+
+  /* A view arriving should read as a step forward rather than a repaint. The
+     keyframe is the design system's own, so the motion matches everything else
+     on the page and honours prefers-reduced-motion with it. */
+  .view {
+    animation: rise 0.26s var(--ease) both;
+  }
+
+  /* ------------------------------------------- two-pane card (both views) */
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20.5rem;
+  }
+  .split__main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    padding: var(--sp-5);
+    min-width: 0;
+  }
+  /* The rail holds what explains or governs the pane beside it, never the
+     primary action. Tinting it is what keeps that legible at a glance. */
+  .split__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+    padding: var(--sp-5);
+    min-width: 0;
+    background: var(--surface-2);
+    border-left: 1px solid var(--border);
+  }
+  .split__side .readout {
+    background: var(--surface-1);
+  }
+
+  /* The pane is a flex column with its own gap, so the block margins the shared
+     sheet gives these three would land on top of it and double the rhythm. */
+  .split__main > .card__head,
+  .split__main > .card__note {
+    margin-bottom: 0;
+  }
+  .split__main > .card__foot {
+    margin-top: auto;
+    padding-top: var(--sp-4);
+  }
+
+  /* An error slot with nothing in it is still a flex item, and a flex item with
+     no content still takes a gap on each side. */
+  #setup-error:empty,
+  #error-box:empty {
+    display: none;
+  }
+
+  .side-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .side-label {
+    font-size: 0.625rem;
+    font-weight: 640;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ---------------------------------------------------------------- setup */
+
+  .setup-stack {
+    gap: var(--sp-5);
+  }
+  .hintrow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    counter-reset: step;
+  }
+  .steps li {
+    display: flex;
+    gap: var(--sp-3);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .steps li::before {
+    counter-increment: step;
+    content: counter(step);
+    flex: none;
+    width: 1.375rem;
+    height: 1.375rem;
+    margin-top: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-full);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* ----------------------------------------------------------- disclosure */
+
+  /* The system prompt is the lesson, not a debug toggle, so the control that
+     opens it is built to look worth opening. */
+  .disclosure {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+    overflow: hidden;
+    transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+  }
+  .disclosure:hover {
+    border-color: var(--border-strong);
+  }
+  .disclosure[open] {
+    border-color: var(--accent-border);
+    box-shadow: var(--shadow-1);
+  }
+  .disclosure__summary {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    cursor: pointer;
+    list-style: none;
+  }
+  .disclosure__summary::-webkit-details-marker {
+    display: none;
+  }
+  .disclosure__summary:focus-visible {
+    outline-offset: -3px;
+  }
+  .disclosure__chev {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 1px;
+    border-radius: var(--r-xs);
+    background: var(--surface-3);
+    color: var(--ink-2);
+    transition: transform 0.18s var(--ease), background 0.18s var(--ease),
+      color 0.18s var(--ease);
+  }
+  .disclosure__chev::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    margin-left: -2px;
+    border-right: 1.6px solid currentColor;
+    border-bottom: 1.6px solid currentColor;
+    transform: rotate(-45deg);
+  }
+  .disclosure[open] .disclosure__chev {
+    transform: rotate(90deg);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .disclosure__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .disclosure__title {
+    font-size: var(--fs-sm);
+    font-weight: 580;
+    color: var(--ink-1);
+  }
+  .disclosure__sub {
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    color: var(--ink-3);
+    max-width: 58ch;
+  }
+  .disclosure__body {
+    padding: 0 var(--sp-4) var(--sp-4);
+  }
+
+  .prompt-view {
+    margin: 0;
+    padding: var(--sp-3);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--mono);
+    font-size: var(--fs-xs);
+    line-height: 1.7;
+    color: var(--ink-2);
+    background: var(--plane);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    max-height: 22rem;
+    overflow: auto;
+  }
+
+  /* The per-turn "what this sent" peek, built in app.js. */
+  .sent-peek {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-2);
+    border-top: 1px dashed var(--border-strong);
+  }
+  .sent-peek > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    transition: color 0.14s var(--ease);
+  }
+  .sent-peek > summary::-webkit-details-marker {
+    display: none;
+  }
+  .sent-peek > summary::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.18s var(--ease);
+  }
+  .sent-peek[open] > summary::before {
+    transform: rotate(45deg);
+  }
+  .sent-peek > summary:hover {
+    color: var(--ink-1);
+  }
+  .sent-peek .prompt-view {
+    margin-top: var(--sp-2);
+    max-height: 14rem;
+    background: var(--surface-1);
+  }
+
+  /* -------------------------------------------------------------- session */
+
+  .session__head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-3);
+    flex-wrap: wrap;
+  }
+  #session-model:empty {
+    display: none;
+  }
+
+  .problem {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r-sm);
+  }
+  .problem__text {
+    margin: 0;
+    max-width: 68ch;
+    max-height: 9em;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    color: var(--ink-1);
+  }
+
   .transcript {
     display: flex;
     flex-direction: column;
     gap: var(--sp-3);
-    max-height: 58vh;
+    min-height: 15rem;
+    max-height: min(56vh, 38rem);
     overflow-y: auto;
-    padding: var(--sp-1);
+    padding: 2px var(--sp-2) 2px 2px;
   }
-  .transcript:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .transcript:focus-visible {
+    outline-offset: 0;
+  }
+  /* Long model answers are prose; cap the measure so they stay readable in a
+     card this wide. */
+  .transcript .msg__body {
+    max-width: 68ch;
+  }
 
-  /* Model output keeps its own line breaks; the design system does not assume that. */
-  .msg__body { white-space: pre-wrap; }
-
-  .prompt-view {
-    white-space: pre-wrap;
-    font-family: var(--mono);
-    font-size: var(--fs-xs);
-    line-height: 1.65;
+  .composer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    /* Anchored to the foot of the pane, so a short transcript does not leave the
+       reply box floating in the middle of the card. */
+    margin-top: auto;
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--border);
+  }
+  .composer__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .turn-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--fs-sm);
     color: var(--ink-2);
-    background: var(--surface-2);
+  }
+  .turn-status:empty {
+    display: none;
+  }
+
+  /* ---------------------------------------------------------- hint ladder */
+
+  .ladder {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    background: var(--surface-1);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    padding: var(--sp-3);
-    margin: var(--sp-2) 0 0;
-    max-height: 320px;
-    overflow: auto;
+    box-shadow: var(--shadow-1);
   }
-  summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); }
-  summary:hover { color: var(--ink-1); }
-  .sent-peek { margin-top: var(--sp-2); }
-  .sent-peek .prompt-view { max-height: 200px; }
+  .ladder__head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .ladder__head .side-label {
+    margin-right: auto;
+  }
 
-  .pips { display: inline-flex; gap: 6px; align-items: center; }
+  .pips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
   .pip {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .pip__bar {
+    height: 6px;
+    border-radius: var(--r-full);
     background: var(--surface-3);
     border: 1px solid var(--border);
+    transition: background 0.24s var(--ease), border-color 0.24s var(--ease);
   }
-  .pip.is-used { background: var(--accent); border-color: var(--accent); }
+  .pip__tier {
+    font-size: var(--fs-xs);
+    line-height: 1.3;
+    color: var(--ink-3);
+    overflow-wrap: anywhere;
+    transition: color 0.24s var(--ease);
+  }
+  .pip.is-used .pip__bar {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .pip.is-used .pip__tier {
+    color: var(--ink-2);
+  }
+  .pip.is-next .pip__bar {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .pip.is-next .pip__tier {
+    color: var(--accent);
+    font-weight: 620;
+  }
 
-  .problem-echo { white-space: pre-wrap; max-height: 7.5em; overflow: auto; }
+  .ladder__note {
+    margin: 0;
+    min-height: 3.1em;
+    font-size: var(--fs-xs);
+    line-height: 1.55;
+    color: var(--ink-3);
+  }
+  .ladder__split {
+    height: 1px;
+    background: var(--border);
+  }
+  .ladder__end {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  /* The one button on the page whose label cannot be shortened to fit 360px. */
+  .wrapbtn {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.35;
+  }
+  /* Arming mirrors the sheet's own .btn--danger:hover, so the second press
+     looks like a decision rather than a new colour. */
+  #give-up.is-armed {
+    background: var(--critical-soft);
+    border-color: var(--critical);
+  }
+
+  /* ------------------------------------------------------- busy & hotkeys */
+
+  /* A disabled button is dimmed to 45%, which would hide the very spinner that
+     explains why it is disabled. */
+  .btn.is-busy:disabled,
+  .btn.is-busy[aria-disabled="true"] {
+    opacity: 1;
+    cursor: progress;
+  }
+  .btn--primary .spinner {
+    border-color: rgba(255, 255, 255, 0.34);
+    border-top-color: var(--accent-ink);
+  }
+
+  .kbdhint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ink-3);
+    font-size: var(--fs-xs);
+  }
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--r-xs);
+    background: var(--surface-1);
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    line-height: 1.6;
+  }
+
+  /* ----------------------------------------------------------- responsive */
+
+  @media (max-width: 62rem) {
+    .split {
+      grid-template-columns: 1fr;
+    }
+    .split__side {
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .page-head h1 {
+      font-size: var(--fs-xl);
+      max-width: none;
+    }
+    .split__main,
+    .split__side {
+      padding: var(--sp-4);
+    }
+    .transcript {
+      max-height: 64vh;
+    }
+    .kbdhint {
+      display: none;
+    }
+  }
 </style>
 </head>
 <body>
@@ -73,116 +544,220 @@
     <a class="btn btn--sm" href="https://github.com/AndrewBuildsNYU/archway-tutor">Source</a>
   </header>
 
-  <p class="lede">
-    A study partner that refuses to just hand over the answer. It demonstrates how far a
-    carefully shaped system prompt gets you, and how a three-tier hint ladder is nothing more
-    than extra turns appended to the same message array.
-  </p>
+  <div class="page-head">
+    <h1>Walked to the answer, not handed it</h1>
+    <p class="lede">
+      A study partner that refuses to just hand over the solution. It asks what you have already
+      tried, puts one question per turn, and escalates through a three-tier hint ladder before it
+      will work anything out for you.
+    </p>
+    <p class="page-head__meta">
+      <span class="badge badge--accent">Streaming</span>
+      <span>Every turn is metered by the Archway, and the receipt is on screen.</span>
+    </p>
+  </div>
 
   <div id="key-mount"></div>
 
   <main id="app">
-    <section class="card" id="setup-view" aria-labelledby="setup-title">
-      <div class="card__head">
-        <h2 id="setup-title">What are you working on?</h2>
-      </div>
-      <p class="card__note">
-        The subject shapes the tutor's opening move. Pick the closest one, then paste the
-        problem exactly as it was set.
-      </p>
 
-      <div class="stack">
-        <div class="grid">
-          <div class="field">
-            <label for="subject">Subject</label>
-            <select id="subject" disabled>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Physics">Physics</option>
-              <option value="Chemistry">Chemistry</option>
-              <option value="Biology">Biology</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Economics">Economics</option>
-              <option value="Writing">Writing</option>
-              <option value="Other">Other</option>
-            </select>
+    <!-- ------------------------------------------------------------ setup -->
+    <section class="card card--flush view" id="setup-view" aria-labelledby="setup-title">
+      <div class="split">
+        <div class="split__main">
+          <div class="card__head">
+            <h2 id="setup-title">What are you working on?</h2>
+            <span class="badge hidden" id="setup-lock">Connect a key to begin</span>
           </div>
-          <div class="field">
-            <label for="model">Model</label>
-            <select id="model" disabled>
-              <option>Connect a key first</option>
-            </select>
-            <p class="field__hint">Every model your key can reach, through one gateway.</p>
+          <p class="card__note">
+            Pick the closest subject, then paste the problem exactly as it was set. The subject
+            changes the tutor's opening move, not its manners.
+          </p>
+
+          <div class="stack setup-stack">
+            <div class="grid">
+              <div class="field">
+                <label for="subject">Subject</label>
+                <select id="subject" disabled>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Biology">Biology</option>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Economics">Economics</option>
+                  <option value="Writing">Writing</option>
+                  <option value="Other">Other</option>
+                </select>
+                <p class="field__hint">Changes one line of the system prompt.</p>
+              </div>
+
+              <div class="field">
+                <label for="model">Model</label>
+                <select id="model" disabled>
+                  <option>Connect a key first</option>
+                </select>
+                <p class="field__hint hintrow">
+                  <span class="spinner hidden" id="model-spin" aria-hidden="true"></span>
+                  <span id="model-hint-text">Every model your key can reach, through one gateway.</span>
+                  <button type="button" class="btn btn--sm hidden" id="model-retry">Retry</button>
+                </p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="problem">The problem or question</label>
+              <textarea id="problem" rows="5" disabled
+                placeholder="A 2 kg block slides down a frictionless 30-degree incline from rest. How fast is it going after 1.5 m?"></textarea>
+              <p class="field__hint">Paste it whole &mdash; diagrams described in words are fine.</p>
+            </div>
+
+            <div id="setup-error"></div>
+          </div>
+
+          <div class="card__foot">
+            <button type="button" class="btn btn--primary" id="start" disabled>
+              <span class="spinner hidden" data-spin aria-hidden="true"></span>
+              <span data-label>Start session</span>
+            </button>
+            <span class="small muted" id="start-hint">Nothing is sent until you press this.</span>
+            <span class="spacer"></span>
+            <span class="kbdhint"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">Enter</kbd></span>
           </div>
         </div>
 
-        <div class="field">
-          <label for="problem">The problem or question</label>
-          <textarea id="problem" rows="5" disabled
-            placeholder="A 2 kg block slides down a frictionless 30-degree incline from rest. How fast is it going after 1.5 m?"></textarea>
-          <p class="field__hint">Ctrl+Enter (Cmd+Enter) starts the session.</p>
-        </div>
+        <aside class="split__side" aria-label="How a session runs">
+          <div class="side-block">
+            <span class="side-label">How a session runs</span>
+            <ol class="steps">
+              <li>It opens by asking what you tried and where it stopped working.</li>
+              <li>One focused question per turn. It will confirm a step; it will not take the last one.</li>
+              <li>Three hints, each more concrete than the last. The worked solution is the rung after that.</li>
+            </ol>
+          </div>
 
-        <details>
-          <summary>See the system prompt</summary>
-          <pre class="prompt-view" id="preview-text"></pre>
-        </details>
-
-        <div id="setup-error"></div>
-
-        <div class="row">
-          <button type="button" class="btn btn--primary" id="start" disabled>Start session</button>
-          <span class="small muted">Nothing is sent until you press this.</span>
-        </div>
+          <details class="disclosure">
+            <summary class="disclosure__summary">
+              <span class="disclosure__chev" aria-hidden="true"></span>
+              <span class="disclosure__text">
+                <span class="disclosure__title">See the system prompt</span>
+                <span class="disclosure__sub">The exact instructions sent with every turn. Nothing about this tutor is hidden from you.</span>
+              </span>
+            </summary>
+            <div class="disclosure__body">
+              <pre class="prompt-view" id="preview-text"></pre>
+            </div>
+          </details>
+        </aside>
       </div>
     </section>
 
-    <section class="card hidden" id="session-view" aria-labelledby="session-title">
-      <div class="card__head">
-        <h2 id="session-title">Session</h2>
-        <button type="button" class="btn btn--sm btn--ghost" id="new-session">New session</button>
-      </div>
-      <p class="card__note problem-echo" id="problem-echo"></p>
+    <!-- ---------------------------------------------------------- session -->
+    <section class="card card--flush view hidden" id="session-view" aria-labelledby="session-title">
+      <div class="split">
+        <div class="split__main">
+          <div class="session__head">
+            <h2 id="session-title">Session</h2>
+            <span class="badge" id="session-model"></span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn--sm btn--ghost" id="new-session">New session</button>
+          </div>
 
-      <div class="transcript" id="transcript" role="log" aria-live="polite" aria-busy="false"
-        aria-label="Tutoring conversation" tabindex="0"></div>
+          <div class="problem">
+            <span class="side-label">The problem</span>
+            <p class="problem__text" id="problem-echo"></p>
+          </div>
 
-      <div id="error-box"></div>
-      <div id="readout" class="readout hidden"></div>
+          <div class="transcript" id="transcript" role="log" aria-live="polite" aria-busy="false"
+            aria-label="Tutoring conversation" tabindex="0"></div>
 
-      <div class="stack">
-        <div class="field">
-          <label for="reply">Your reply</label>
-          <textarea id="reply" rows="3"
-            placeholder="What you tried, where it stopped making sense, or your answer to the tutor's question."></textarea>
-          <p class="field__hint">Ctrl+Enter (Cmd+Enter) sends.</p>
+          <div id="error-box"></div>
+
+          <div class="composer">
+            <div class="field">
+              <label for="reply">Your reply</label>
+              <textarea id="reply" rows="3"
+                placeholder="What you tried, where it stopped making sense, or your answer to the tutor's question."></textarea>
+            </div>
+            <div class="composer__bar">
+              <button type="button" class="btn btn--primary" id="send">
+                <span class="spinner hidden" data-spin aria-hidden="true"></span>
+                <span data-label>Send</span>
+              </button>
+              <button type="button" class="btn btn--ghost hidden" id="stop" title="Stop this turn (Esc)">Stop</button>
+              <span class="turn-status" id="turn-status" role="status" aria-live="polite"></span>
+              <span class="spacer"></span>
+              <span class="kbdhint"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">Enter</kbd> sends</span>
+            </div>
+          </div>
         </div>
 
-        <div class="row">
-          <button type="button" class="btn btn--primary" id="send">Send</button>
-          <button type="button" class="btn" id="hint" aria-describedby="hint-counter">Give me a hint</button>
-          <span class="badge badge--accent" id="hint-counter">Hint 1 of 3</span>
-          <span class="pips" id="pips" aria-hidden="true">
-            <span class="pip"></span><span class="pip"></span><span class="pip"></span>
-          </span>
-          <button type="button" class="btn btn--ghost hidden" id="stop">Stop</button>
-        </div>
+        <aside class="split__side" aria-label="Hints and session detail">
+          <div class="ladder">
+            <div class="ladder__head">
+              <span class="side-label">Hint ladder</span>
+              <span class="badge badge--accent" id="hint-counter">Hint 1 of 3</span>
+            </div>
 
-        <div class="row row--tight">
-          <button type="button" class="btn btn--danger" id="give-up">I give up â€” show me the worked solution</button>
-          <span class="small muted">Ends the hint ladder for this problem.</span>
-        </div>
+            <ol class="pips" id="pips">
+              <li class="pip">
+                <span class="pip__bar" aria-hidden="true"></span>
+                <span class="pip__tier">Concept</span>
+              </li>
+              <li class="pip">
+                <span class="pip__bar" aria-hidden="true"></span>
+                <span class="pip__tier">Method</span>
+              </li>
+              <li class="pip">
+                <span class="pip__bar" aria-hidden="true"></span>
+                <span class="pip__tier">First step</span>
+              </li>
+            </ol>
 
-        <details>
-          <summary>See the system prompt</summary>
-          <pre class="prompt-view" id="live-text"></pre>
-        </details>
+            <p class="ladder__note" id="ladder-note"></p>
+
+            <button type="button" class="btn btn--block" id="hint" aria-describedby="hint-counter">
+              <span class="spinner hidden" data-spin aria-hidden="true"></span>
+              <span data-label>Give me a hint</span>
+            </button>
+
+            <div class="ladder__split" role="presentation"></div>
+
+            <div class="ladder__end">
+              <button type="button" class="btn btn--danger btn--block wrapbtn" id="give-up"
+                aria-describedby="give-up-note">
+                <span class="spinner hidden" data-spin aria-hidden="true"></span>
+                <span data-label>Show the worked solution</span>
+              </button>
+              <p class="xs muted" id="give-up-note">
+                Ends the hint ladder for this problem.
+              </p>
+            </div>
+          </div>
+
+          <div class="side-block hidden" id="readout-wrap">
+            <span class="side-label">Last turn, through the Archway</span>
+            <div id="readout" class="readout hidden"></div>
+          </div>
+
+          <details class="disclosure">
+            <summary class="disclosure__summary">
+              <span class="disclosure__chev" aria-hidden="true"></span>
+              <span class="disclosure__text">
+                <span class="disclosure__title">See the system prompt</span>
+                <span class="disclosure__sub">What every turn in this session carries, including the tier definitions.</span>
+              </span>
+            </summary>
+            <div class="disclosure__body">
+              <pre class="prompt-view" id="live-text"></pre>
+            </div>
+          </details>
+        </aside>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <span>Runs entirely in your browser. Your key is sent only to the Archway you point it at.</span>
-    <span>Ask whoever issued your key for the gateway address and its documentation.</span>
+    <span>Runs entirely in your browser. Your key is held for this tab only, and is sent only to the Archway.</span>
     <a href="https://github.com/AndrewBuildsNYU?tab=repositories&amp;q=archway-">More examples</a>
   </footer>
 </div>

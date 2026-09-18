@@ -2,10 +2,10 @@
    NYU Archway - example app design system.
 
    A standalone reproduction of the gateway's own stylesheet, carried by each
-   demo so a clone is a single `git clone` away from running with no build
-   step, no package manager and no CDN. Tokens are copied from
-   gateway/src/nyugw/static/css/app.css; if that file's palette moves, this one
-   is the thing to re-sync.
+   demo so a clone is one `git clone` away from running: no build step, no
+   package manager, no CDN. Tokens are copied from
+   gateway/src/nyugw/static/css/app.css; if that file's palette moves, this is
+   the file to re-sync.
 
    NYU violet (#57068c) is the accent - the one primary action, the active
    control, the focus ring. It is deliberately NOT a data colour: a hue that
@@ -14,6 +14,19 @@
 
    Dark mode answers both the OS preference and an explicit [data-theme], which
    must win either way.
+
+   Section map
+     1. Tokens
+     2. Reset & base
+     3. Layout shell & topbar
+     4. Cards & grids
+     5. Buttons
+     6. Forms
+     7. Key panel
+     8. Badges, readout, meters
+     9. Messages, alerts, empty states
+    10. Motion & utility
+    11. Responsive
    ========================================================================= */
 
 /* ------------------------------------------------------------- 1. Tokens */
@@ -24,33 +37,35 @@
   --nyu-violet: #57068c;
   --accent: #57068c;
   --accent-strong: #440470;
-  --accent-soft: #f2e9f8;
-  --accent-border: #d9c2ea;
+  --accent-soft: #f4edfa;
+  --accent-border: #ddc9ec;
   --accent-ink: #ffffff;
+  --accent-glow: rgba(87, 6, 140, 0.16);
 
-  --plane: #f6f5f2;
-  --surface-1: #fcfcfb;
-  --surface-2: #f2f1ec;
+  --plane: #f7f6f3;
+  --plane-2: #efeee9;
+  --surface-1: #ffffff;
+  --surface-2: #f4f3ef;
   --surface-3: #e9e8e1;
   --overlay: rgba(11, 11, 11, 0.42);
 
-  --ink-1: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #898781;
+  --ink-1: #0f0f0e;
+  --ink-2: #55544f;
+  --ink-3: #8b8a84;
   --ink-invert: #ffffff;
 
-  --border: rgba(11, 11, 11, 0.12);
-  --border-strong: rgba(11, 11, 11, 0.22);
+  --border: rgba(11, 11, 11, 0.10);
+  --border-strong: rgba(11, 11, 11, 0.18);
   --track: #eceae4;
 
   --good: #0ca30c;
-  --good-soft: #e4f6e4;
-  --good-ink: #006300;
-  --warning: #fab219;
-  --warning-soft: #fdf1d6;
+  --good-soft: #e6f6e6;
+  --good-ink: #0a6b0a;
+  --warning: #e0a01a;
+  --warning-soft: #fdf4e0;
   --warning-ink: #8a5c00;
   --critical: #d03b3b;
-  --critical-soft: #fbe6e6;
+  --critical-soft: #fceaea;
   --critical-ink: #a72222;
 
   /* Fixed order, never cycled - a provider keeps its colour across every app. */
@@ -60,10 +75,10 @@
   --series-4: #eda100;
   --series-5: #e87ba4;
   --series-6: #008300;
-  --series-other: #898781;
+  --series-other: #8b8a84;
 
   --meter-ok: #2a78d6;
-  --meter-ok-track: #d8e7fa;
+  --meter-ok-track: #dce9fa;
   --meter-warn: #e09000;
   --meter-warn-track: #f9ecce;
   --meter-over: #d03b3b;
@@ -78,11 +93,13 @@
   --sp-5: 1.5rem;
   --sp-6: 2rem;
   --sp-7: 3rem;
+  --sp-8: 4rem;
 
   --r-xs: 4px;
-  --r-sm: 6px;
-  --r-md: 10px;
-  --r-lg: 14px;
+  --r-sm: 7px;
+  --r-md: 11px;
+  --r-lg: 16px;
+  --r-xl: 22px;
   --r-full: 999px;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -91,120 +108,130 @@
   --fs-sm: 0.8125rem;
   --fs-base: 0.9375rem;
   --fs-md: 1.0625rem;
-  --fs-lg: 1.375rem;
+  --fs-lg: 1.3125rem;
   --fs-xl: 1.75rem;
+  --fs-hero: 2.25rem;
 
-  --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.05);
-  --shadow-2: 0 4px 14px rgba(11, 11, 11, 0.08);
-  --shadow-3: 0 18px 48px rgba(11, 11, 11, 0.18);
+  /* Two-part shadows: a tight contact shadow plus a soft ambient one. A single
+     large blur reads as a sticker; the pair reads as a surface. */
+  --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.05), 0 1px 1px rgba(11, 11, 11, 0.03);
+  --shadow-2: 0 1px 2px rgba(11, 11, 11, 0.05), 0 6px 18px -6px rgba(11, 11, 11, 0.10);
+  --shadow-3: 0 2px 4px rgba(11, 11, 11, 0.06), 0 22px 48px -12px rgba(11, 11, 11, 0.20);
 
-  --maxw: 72rem;
+  --ring: 0 0 0 3px var(--accent-glow);
+
+  --maxw: 74rem;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
 
-    --accent: #b98ade;
-    --accent-strong: #cba7e9;
+    --accent: #bf93e2;
+    --accent-strong: #d3b2ee;
     --accent-soft: #241033;
-    --accent-border: #4a2a66;
+    --accent-border: #4d2c6a;
     --accent-ink: #1a0a26;
+    --accent-glow: rgba(191, 147, 226, 0.22);
 
-    --plane: #0d0d0d;
-    --surface-1: #1a1a19;
-    --surface-2: #232322;
-    --surface-3: #2c2c2a;
-    --overlay: rgba(0, 0, 0, 0.62);
+    --plane: #0c0c0d;
+    --plane-2: #121213;
+    --surface-1: #19191a;
+    --surface-2: #222223;
+    --surface-3: #2c2c2d;
+    --overlay: rgba(0, 0, 0, 0.66);
 
-    --ink-1: #ffffff;
-    --ink-2: #c3c2b7;
-    --ink-3: #898781;
+    --ink-1: #f7f7f5;
+    --ink-2: #b9b8b2;
+    --ink-3: #86857f;
     --ink-invert: #0b0b0b;
 
-    --border: rgba(255, 255, 255, 0.12);
-    --border-strong: rgba(255, 255, 255, 0.24);
-    --track: #232322;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+    --track: #222223;
 
-    --good-soft: #0d2a0d;
-    --good-ink: #0ca30c;
+    --good-soft: #0e2a0e;
+    --good-ink: #5fd15f;
     --warning-soft: #33280a;
-    --warning-ink: #fab219;
-    --critical-soft: #331414;
-    --critical-ink: #e88b8b;
+    --warning-ink: #f0bb4a;
+    --critical-soft: #331616;
+    --critical-ink: #ef9a9a;
 
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
-    --series-6: #008300;
+    --series-6: #17a217;
 
     --meter-ok: #3987e5;
-    --meter-ok-track: #10305a;
-    --meter-warn: #fab219;
+    --meter-ok-track: #12325c;
+    --meter-warn: #e0a01a;
     --meter-warn-track: #3d2f08;
     --meter-over: #e66767;
     --meter-over-track: #401919;
 
-    --focus: #cba7e9;
+    --focus: #d3b2ee;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.5);
-    --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.65);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(0, 0, 0, 0.6);
+    --shadow-3: 0 2px 4px rgba(0, 0, 0, 0.5), 0 22px 48px -12px rgba(0, 0, 0, 0.75);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --accent: #b98ade;
-  --accent-strong: #cba7e9;
+  --accent: #bf93e2;
+  --accent-strong: #d3b2ee;
   --accent-soft: #241033;
-  --accent-border: #4a2a66;
+  --accent-border: #4d2c6a;
   --accent-ink: #1a0a26;
+  --accent-glow: rgba(191, 147, 226, 0.22);
 
-  --plane: #0d0d0d;
-  --surface-1: #1a1a19;
-  --surface-2: #232322;
-  --surface-3: #2c2c2a;
-  --overlay: rgba(0, 0, 0, 0.62);
+  --plane: #0c0c0d;
+  --plane-2: #121213;
+  --surface-1: #19191a;
+  --surface-2: #222223;
+  --surface-3: #2c2c2d;
+  --overlay: rgba(0, 0, 0, 0.66);
 
-  --ink-1: #ffffff;
-  --ink-2: #c3c2b7;
-  --ink-3: #898781;
+  --ink-1: #f7f7f5;
+  --ink-2: #b9b8b2;
+  --ink-3: #86857f;
   --ink-invert: #0b0b0b;
 
-  --border: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.24);
-  --track: #232322;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+  --track: #222223;
 
-  --good-soft: #0d2a0d;
-  --good-ink: #0ca30c;
+  --good-soft: #0e2a0e;
+  --good-ink: #5fd15f;
   --warning-soft: #33280a;
-  --warning-ink: #fab219;
-  --critical-soft: #331414;
-  --critical-ink: #e88b8b;
+  --warning-ink: #f0bb4a;
+  --critical-soft: #331616;
+  --critical-ink: #ef9a9a;
 
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
-  --series-6: #008300;
+  --series-6: #17a217;
 
   --meter-ok: #3987e5;
-  --meter-ok-track: #10305a;
-  --meter-warn: #fab219;
+  --meter-ok-track: #12325c;
+  --meter-warn: #e0a01a;
   --meter-warn-track: #3d2f08;
   --meter-over: #e66767;
   --meter-over-track: #401919;
 
-  --focus: #cba7e9;
+  --focus: #d3b2ee;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.5);
-  --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.65);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(0, 0, 0, 0.6);
+  --shadow-3: 0 2px 4px rgba(0, 0, 0, 0.5), 0 22px 48px -12px rgba(0, 0, 0, 0.75);
 }
 
 /* ------------------------------------------------------ 2. Reset & base */
@@ -217,25 +244,38 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--plane);
+  /* A very low-contrast wash off the top edge, so the page has a light source
+     and the topbar does not float on a flat field. */
+  background-image: radial-gradient(
+    120rem 40rem at 50% -18rem,
+    var(--plane-2) 0%,
+    transparent 70%
+  );
+  background-repeat: no-repeat;
   color: var(--ink-1);
   font-family: var(--font);
   font-size: var(--fs-base);
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis-weight: none;
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
-  line-height: 1.25;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  line-height: 1.22;
+  font-weight: 640;
+  letter-spacing: -0.018em;
+  color: var(--ink-1);
 }
 
 h1 {
@@ -252,10 +292,19 @@ p {
   margin: 0 0 var(--sp-3);
 }
 
+p:last-child {
+  margin-bottom: 0;
+}
+
 a {
   color: var(--accent);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  transition: color 0.14s var(--ease);
+}
+
+a:hover {
+  color: var(--accent-strong);
 }
 
 :focus-visible {
@@ -270,63 +319,116 @@ kbd {
   font-size: 0.92em;
 }
 
-/* ------------------------------------------------------------ 3. Layout */
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink-1);
+}
+
+/* Scrollbars that do not shout, on the panes that actually scroll. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+  background-clip: content-box;
+}
+
+/* --------------------------------------------- 3. Layout shell & topbar */
 
 .shell {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: var(--sp-5) var(--sp-4) var(--sp-7);
+  padding: 0 var(--sp-5) var(--sp-8);
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   flex-wrap: wrap;
-  padding-bottom: var(--sp-4);
-  margin-bottom: var(--sp-5);
+  margin: 0 calc(var(--sp-5) * -1) var(--sp-6);
+  padding: var(--sp-3) var(--sp-5);
+  background: color-mix(in srgb, var(--plane) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--border);
+}
+
+/* color-mix is recent; without it the bar must still be opaque or the page
+   scrolls visibly underneath it. */
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .topbar {
+    background: var(--plane);
+  }
 }
 
 .topbar__mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.125rem;
+  height: 2.125rem;
   flex: none;
   border-radius: var(--r-sm);
-  background: var(--accent);
+  background: linear-gradient(160deg, var(--accent) 0%, var(--accent-strong) 100%);
   color: var(--accent-ink);
   font-weight: 700;
-  font-size: var(--fs-sm);
-  letter-spacing: -0.02em;
+  font-size: 0.6875rem;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-1);
 }
 
 .topbar__title {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   margin-right: auto;
   min-width: 0;
 }
 
 .topbar__title strong {
-  font-size: var(--fs-md);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-base);
+  font-weight: 640;
+  letter-spacing: -0.014em;
+  line-height: 1.3;
 }
 
 .topbar__title span {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   color: var(--ink-3);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 560;
 }
 
 .lede {
   color: var(--ink-2);
   font-size: var(--fs-md);
-  max-width: 60ch;
-  margin-bottom: var(--sp-5);
+  line-height: 1.58;
+  max-width: 62ch;
+  margin: 0 0 var(--sp-6);
+  text-wrap: pretty;
 }
 
 .stack {
@@ -350,9 +452,22 @@ kbd {
   margin-left: auto;
 }
 
-/* ------------------------------------------------------------- 4. Cards */
+.footer {
+  margin-top: var(--sp-7);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  display: flex;
+  gap: var(--sp-2) var(--sp-5);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ------------------------------------------------------ 4. Cards & grids */
 
 .card {
+  position: relative;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -373,59 +488,98 @@ kbd {
   margin-bottom: var(--sp-4);
 }
 
-.card__head h2,
-.card__head h3 {
+.card__head > h2,
+.card__head > h3,
+.card__head > strong,
+.card__head > div:first-child {
   margin-right: auto;
+}
+
+.card__head strong {
+  font-size: var(--fs-md);
+  font-weight: 640;
+  letter-spacing: -0.014em;
 }
 
 .card__note {
   color: var(--ink-2);
   font-size: var(--fs-sm);
-  margin: 0;
+  line-height: 1.55;
+  margin: 0 0 var(--sp-4);
+  max-width: 68ch;
+}
+
+.card__foot {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
 }
 
 .grid {
   display: grid;
   gap: var(--sp-4);
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
 }
 
-/* --------------------------------------------------- 5. Buttons & forms */
+/* --------------------------------------------------------- 5. Buttons */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 0.95rem;
   border-radius: var(--r-sm);
   border: 1px solid var(--border-strong);
   background: var(--surface-1);
   color: var(--ink-1);
   font: inherit;
   font-size: var(--fs-sm);
-  font-weight: 550;
+  font-weight: 560;
+  line-height: 1.4;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+  box-shadow: var(--shadow-1);
+  transition: background 0.14s var(--ease), border-color 0.14s var(--ease),
+    box-shadow 0.14s var(--ease), transform 0.08s var(--ease), color 0.14s var(--ease);
 }
 
-.btn:hover:not(:disabled) {
+.btn:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-2);
+  border-color: var(--ink-3);
 }
 
-.btn:disabled {
-  opacity: 0.5;
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-color: var(--accent-strong);
   color: var(--accent-ink);
+  box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--accent-strong);
+  background: linear-gradient(180deg, var(--accent-strong) 0%, var(--accent-strong) 100%);
   border-color: var(--accent-strong);
 }
 
@@ -433,105 +587,301 @@ kbd {
   background: transparent;
   border-color: transparent;
   color: var(--ink-2);
+  box-shadow: none;
 }
 
 .btn--ghost:hover:not(:disabled) {
   background: var(--surface-2);
+  border-color: var(--border);
   color: var(--ink-1);
 }
 
 .btn--danger {
   color: var(--critical-ink);
   border-color: var(--border-strong);
+  background: var(--surface-1);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--critical-soft);
+  border-color: var(--critical);
 }
 
 .btn--sm {
-  padding: 0.3rem 0.6rem;
+  padding: 0.3rem 0.62rem;
   font-size: var(--fs-xs);
+  border-radius: var(--r-xs);
 }
+
+.btn--block {
+  width: 100%;
+}
+
+/* ----------------------------------------------------------- 6. Forms */
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 0.375rem;
   min-width: 0;
 }
 
 .field > label {
   font-size: var(--fs-sm);
-  font-weight: 550;
-  color: var(--ink-2);
+  font-weight: 580;
+  color: var(--ink-1);
+  letter-spacing: -0.005em;
 }
 
 .field__hint {
   font-size: var(--fs-xs);
   color: var(--ink-3);
   margin: 0;
+  line-height: 1.5;
 }
 
 input[type="text"],
 input[type="password"],
 input[type="url"],
 input[type="number"],
+input[type="search"],
 select,
 textarea {
   width: 100%;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.7rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   background: var(--surface-1);
   color: var(--ink-1);
   font: inherit;
   font-size: var(--fs-sm);
+  line-height: 1.5;
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease),
+    background 0.14s var(--ease);
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: not-allowed;
+  border-color: var(--border);
 }
 
 textarea {
   resize: vertical;
   min-height: 5rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 input::placeholder,
 textarea::placeholder {
   color: var(--ink-3);
+  opacity: 1;
+}
+
+/* A native select arrow cannot be styled, and the default differs enough
+   between platforms to make a row of controls look mismatched. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238b8a84' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  cursor: pointer;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: auto;
 }
 
 .mono {
   font-family: var(--mono);
+  font-size: var(--fs-sm);
+  letter-spacing: -0.01em;
 }
 
-/* ------------------------------------------------------ 6. Key panel */
+/* ------------------------------------------------------- 7. Key panel */
 
 .keypanel {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--accent-border);
-  background: var(--accent-soft);
+  background: var(--surface-1);
   border-radius: var(--r-lg);
   padding: var(--sp-5);
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-6);
+  box-shadow: var(--shadow-2);
 }
 
-.keypanel__grid {
-  display: grid;
-  gap: var(--sp-4);
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-  align-items: start;
+/* A violet edge, so the one thing the page needs from you reads as the one
+   thing the page needs from you. */
+.keypanel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-strong) 100%);
+}
+
+.keypanel__head {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+  margin-bottom: var(--sp-4);
+}
+
+.keypanel__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 1px;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.keypanel__title {
+  font-size: var(--fs-md);
+  font-weight: 640;
+  letter-spacing: -0.016em;
+  margin: 0 0 2px;
+}
+
+.keypanel__sub {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.keypanel .field {
+  max-width: 30rem;
+}
+
+/* The reveal button sits inside the input's border rather than beside it, so
+   the control reads as one object. */
+.keyinput {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.keyinput input {
+  padding-right: 4.25rem;
+}
+
+.keyinput__peek {
+  position: absolute;
+  right: 5px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 580;
+  cursor: pointer;
+  transition: background 0.14s var(--ease), color 0.14s var(--ease);
+}
+
+.keyinput__peek:hover {
+  background: var(--surface-3);
+  color: var(--ink-1);
+}
+
+.keypanel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+
+.keypanel__status {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.keypanel__status.is-error {
+  color: var(--critical-ink);
+  font-weight: 560;
 }
 
 .keypanel__warn {
   display: flex;
   gap: var(--sp-3);
   align-items: flex-start;
-  margin-top: var(--sp-4);
-  padding: var(--sp-3);
-  border-radius: var(--r-sm);
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
   background: var(--warning-soft);
-  border: 1px solid var(--warning);
-  color: var(--warning-ink);
-  font-size: var(--fs-sm);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
 }
 
-.keypanel__warn strong {
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .keypanel__warn {
+    border-color: var(--warning);
+  }
+}
+
+.keypanel__warn-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 2px;
+  border-radius: var(--r-full);
+  background: var(--warning);
+  color: #3a2800;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.keypanel__warn-text {
+  margin: 0;
   color: var(--warning-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.keypanel__warn-text strong {
+  font-weight: 680;
 }
 
 .keybar {
@@ -539,11 +889,12 @@ textarea::placeholder {
   align-items: center;
   gap: var(--sp-3);
   flex-wrap: wrap;
-  padding: var(--sp-3) var(--sp-4);
+  padding: 0.5rem var(--sp-4);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  background: var(--surface-2);
-  margin-bottom: var(--sp-5);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+  margin-bottom: var(--sp-6);
   font-size: var(--fs-sm);
 }
 
@@ -553,22 +904,49 @@ textarea::placeholder {
   border-radius: var(--r-full);
   background: var(--good);
   flex: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 20%, transparent);
 }
 
-/* ------------------------------------------------- 7. Badges & readout */
+.keybar__text {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  letter-spacing: -0.01em;
+}
+
+/* One badge per third-party vendor the connected key may call, filled in from
+   GET /v1/key once the gateway answers. A key is scoped, so this is the only
+   place a visitor can see what theirs actually reaches before picking a model.
+   Amber = mock (no vendor credential), red = allowance already spent. */
+.keybar__access {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.keybar__forget:hover:not(:disabled) {
+  color: var(--critical-ink);
+  background: var(--critical-soft);
+  border-color: transparent;
+}
+
+/* ------------------------------------------ 8. Badges, readout, meters */
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  padding: 0.12rem 0.5rem;
+  padding: 0.14rem 0.5rem;
   border-radius: var(--r-full);
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 620;
+  letter-spacing: 0.005em;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--ink-2);
   white-space: nowrap;
+  line-height: 1.5;
 }
 
 .badge--good {
@@ -600,7 +978,8 @@ textarea::placeholder {
 .readout {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
+  align-items: center;
+  gap: var(--sp-3) var(--sp-5);
   padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -618,15 +997,18 @@ textarea::placeholder {
 .readout__label {
   color: var(--ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
   font-size: 0.625rem;
-  font-weight: 600;
+  font-weight: 640;
+  line-height: 1.4;
 }
 
 .readout__value {
   font-family: var(--mono);
+  font-size: var(--fs-xs);
   color: var(--ink-1);
   overflow-wrap: anywhere;
+  font-weight: 540;
 }
 
 .meter {
@@ -641,7 +1023,7 @@ textarea::placeholder {
   height: 100%;
   background: var(--meter-ok);
   border-radius: var(--r-full);
-  transition: width 0.3s ease;
+  transition: width 0.4s var(--ease);
 }
 
 .meter--warn {
@@ -657,16 +1039,17 @@ textarea::placeholder {
   background: var(--meter-over);
 }
 
-/* ------------------------------------------------------ 8. Messages */
+/* ------------------------------ 9. Messages, alerts, empty states */
 
 .msg {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 0.375rem;
   padding: var(--sp-4);
   border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--surface-1);
+  animation: rise 0.22s var(--ease) both;
 }
 
 .msg--user {
@@ -675,37 +1058,52 @@ textarea::placeholder {
 }
 
 .msg__role {
-  font-size: var(--fs-xs);
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.07em;
   color: var(--ink-3);
 }
 
-/* Model output is untrusted text written with textContent, so `white-space`
-   is what preserves its paragraphs rather than any markdown rendering. */
+.msg--user .msg__role {
+  color: var(--accent);
+}
+
+/* Model output is untrusted text written with textContent, so `white-space` is
+   what preserves its paragraphs rather than any markdown rendering. */
 .msg__body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
   font-family: inherit;
   font-size: var(--fs-base);
+  line-height: 1.62;
+  color: var(--ink-1);
 }
 
 .alert {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 0.2rem;
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-md);
-  border: 1px solid var(--critical);
+  border: 1px solid color-mix(in srgb, var(--critical) 50%, transparent);
   background: var(--critical-soft);
   color: var(--critical-ink);
   font-size: var(--fs-sm);
+  line-height: 1.55;
+  animation: rise 0.22s var(--ease) both;
+}
+
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .alert {
+    border-color: var(--critical);
+  }
 }
 
 .alert__title {
-  font-weight: 650;
+  font-weight: 660;
+  font-size: var(--fs-sm);
 }
 
 .alert code {
@@ -717,32 +1115,57 @@ textarea::placeholder {
   text-align: center;
   color: var(--ink-3);
   font-size: var(--fs-sm);
+  line-height: 1.6;
 }
+
+/* ------------------------------------------------- 10. Motion & utility */
 
 /* Blinking caret while a stream is in flight. */
 .streaming::after {
-  content: "▍";
+  content: "";
   display: inline-block;
-  animation: blink 1s steps(2, start) infinite;
-  color: var(--accent);
+  width: 0.5em;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: blink 1.05s steps(2, start) infinite;
 }
 
 @keyframes blink {
   to {
-    visibility: hidden;
+    opacity: 0;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .streaming::after {
-    animation: none;
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  * {
-    transition-duration: 0.01ms !important;
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-/* ---------------------------------------------------------- 9. Utility */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--r-full);
+  animation: spin 0.62s linear infinite;
+  flex: none;
+}
 
 .hidden {
   display: none !important;
@@ -772,33 +1195,56 @@ textarea::placeholder {
   border: 0;
 }
 
-.footer {
-  margin-top: var(--sp-7);
-  padding-top: var(--sp-4);
-  border-top: 1px solid var(--border);
-  color: var(--ink-3);
-  font-size: var(--fs-sm);
-  display: flex;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .streaming::after {
+    animation: none;
+    opacity: 1;
+  }
 }
 
-/* ------------------------------------------------------- 10. Responsive */
+/* ------------------------------------------------------- 11. Responsive */
 
 @media (max-width: 40rem) {
+  :root {
+    --fs-xl: 1.5rem;
+    --fs-lg: 1.1875rem;
+  }
+
   .shell {
-    padding: var(--sp-4) var(--sp-4) var(--sp-6);
+    padding: 0 var(--sp-4) var(--sp-7);
   }
 
-  .keypanel__grid {
-    grid-template-columns: 1fr;
+  .topbar {
+    margin: 0 calc(var(--sp-4) * -1) var(--sp-5);
+    padding: var(--sp-3) var(--sp-4);
   }
 
-  .card {
+  .card,
+  .keypanel {
     padding: var(--sp-4);
+    border-radius: var(--r-md);
   }
 
-  h1 {
-    font-size: var(--fs-lg);
+  .lede {
+    font-size: var(--fs-base);
+    margin-bottom: var(--sp-5);
+  }
+
+  .readout {
+    gap: var(--sp-3);
+  }
+
+  .btn {
+    padding: 0.5rem 0.8rem;
   }
 }
