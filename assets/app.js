@@ -109,6 +109,9 @@
     "unlocks this problem and the signal that should make them reach for it next time. Do not " +
     "scold and do not congratulate.";
 
+  // Warm enough that two students on the same problem do not get the same
+  // wording. Dropped for models that only run at their own default - see
+  // Archway.supportsTemperature.
   var TEMPERATURE = 0.6;
   var MAX_TOKENS_TURN = 700;
   var MAX_TOKENS_SOLUTION = 1500;

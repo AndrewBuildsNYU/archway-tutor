@@ -407,6 +407,87 @@
     return limit ? out.slice(0, limit) : out;
   }
 
+  // -------------------------------------------------------------- sampling
+
+  /* Which models refuse a `temperature` outright.
+   *
+   * OpenAI's reasoning models accept only their default temperature of 1 and
+   * answer anything else with an HTTP 400 reading
+   *
+   *   Unsupported value: 'temperature' does not support 0.3 with this model.
+   *   Only the default (1) value is supported.
+   *
+   * The documented rule is a family rule rather than a per-model one:
+   * reasoning models other than GPT-6 Astra support none of `temperature`,
+   * `top_p`, `presence_penalty`, `frequency_penalty`, `logprobs`,
+   * `top_logprobs`, `logit_bias` or `max_tokens`. Only the first is ours to
+   * handle - these apps send no penalties, and the output cap is renamed per
+   * vendor by the gateway (providers/openai_compat.py), not here.
+   *
+   * So the GPT-5 line and the o-series are out, GPT-6 Astra is the documented
+   * exception that takes a temperature like any ordinary model, and no other
+   * vendor NYU fronts is affected.
+   *
+   * This is a first guess and not the authority. The catalogue is a database
+   * table and a vendor can ship a new family tomorrow, so an unknown model is
+   * assumed to accept a temperature and `withTemperatureFallback` below learns
+   * the truth from the vendor's own refusal. Between the two, a visitor never
+   * sees a temperature error.
+   */
+  var REASONING_MODEL = /(^|[^a-z0-9])(gpt-5|o1|o3|o4)([^a-z0-9]|$)/;
+
+  /* Models observed to refuse one, keyed by the alias an app sends. A cache of
+   * what a vendor said this page view, deliberately not a catalogue. */
+  var temperatureRefused = {};
+
+  function supportsTemperature(model) {
+    var id = String(model || "").toLowerCase();
+    if (!id) return true;
+    if (temperatureRefused[id]) return false;
+    // Tested before the family rule because it is an exception to it.
+    if (id.indexOf("gpt-6-astra") > -1) return true;
+    return !REASONING_MODEL.test(id);
+  }
+
+  /* Is this the vendor saying the temperature itself was unwelcome?
+   *
+   * Matched on the message because the machine-readable parts do not carry it:
+   * the envelope is a generic invalid_request_error and `param` does not
+   * survive every vendor's error translation. Narrow on purpose - a 400 that
+   * merely mentions the word is not enough, or an unrelated complaint would be
+   * retried for nothing.
+   */
+  function isTemperatureRefusal(error) {
+    var detail = (error && error.detail) || {};
+    // A mid-stream failure arrives after output is already on the screen, and
+    // a second call would paint it twice. Nothing to do but report it.
+    if (detail.midStream) return false;
+    if (detail.status !== 400) return false;
+    var message = String((error && error.message) || "").toLowerCase();
+    if (message.indexOf("temperature") === -1) return false;
+    return (
+      message.indexOf("unsupported") > -1 ||
+      message.indexOf("does not support") > -1 ||
+      message.indexOf("not supported") > -1 ||
+      message.indexOf("only the default") > -1
+    );
+  }
+
+  /* Run `send(opts)`, and if the model turns out to refuse a temperature,
+   * remember that and run it once more without one.
+   *
+   * Retrying is safe exactly here and exactly once: the refusal is an HTTP 400
+   * from the vendor's request validation, so it landed before a token was
+   * generated - nothing was shown, nothing was billed, and no quota moved.
+   */
+  function withTemperatureFallback(opts, send) {
+    return send(opts).catch(function (err) {
+      if (typeof opts.temperature !== "number" || !isTemperatureRefusal(err)) throw err;
+      temperatureRefused[String(opts.model || "").toLowerCase()] = true;
+      return send(Object.assign({}, opts, { temperature: undefined }));
+    });
+  }
+
   // ------------------------------------------------------------------ chat
 
   /* Build a /v1/chat/completions body.
@@ -437,7 +518,13 @@
       var n = Number(opts.maxTokens);
       if (isFinite(n) && n > 0) body.max_tokens = Math.floor(n);
     }
-    if (typeof opts.temperature === "number" && isFinite(opts.temperature)) {
+    // Omitted rather than clamped to 1 for a model that refuses one: sending
+    // the default would quietly claim the caller asked for it.
+    if (
+      typeof opts.temperature === "number" &&
+      isFinite(opts.temperature) &&
+      supportsTemperature(opts.model)
+    ) {
       body.temperature = opts.temperature;
     }
     if (opts.stream === true) body.stream_options = { include_usage: true };
@@ -446,6 +533,10 @@
 
   /* Non-streaming completion. Resolves {text, usage, headers}. */
   function chat(opts) {
+    return withTemperatureFallback(opts, sendChat);
+  }
+
+  function sendChat(opts) {
     return requestJson("/v1/chat/completions", {
       method: "POST",
       body: chatBody(opts),
@@ -475,6 +566,12 @@
    *   - a mid-stream failure arrives as an error frame under HTTP 200
    */
   function streamChat(opts, onDelta) {
+    return withTemperatureFallback(opts, function (attempt) {
+      return sendStreamChat(attempt, onDelta);
+    });
+  }
+
+  function sendStreamChat(opts, onDelta) {
     var started = Date.now();
     return request("/v1/chat/completions", {
       method: "POST",
@@ -935,6 +1032,7 @@
     chat: chat,
     streamChat: streamChat,
     chatBody: chatBody,
+    supportsTemperature: supportsTemperature,
 
     mountKeyPanel: mountKeyPanel,
     renderReadout: renderReadout,
